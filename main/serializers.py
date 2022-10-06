@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Post, Comment
+from .models import Category, Post, Comment, PostImages
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -16,19 +16,26 @@ class PostListSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'owner', 'preview')
 
 
+class PostImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostImages
+        exclude = ('id', 'title')
+
+
 class PostCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Post
-        fields = ('title', 'body', 'category', 'preview',)
-
-
-class PostSerializer(serializers.ModelSerializer):
-    owner = serializers.ReadOnlyField(source='owner.username')
-    category_name = serializers.ReadOnlyField(source='category.name')
+    images = PostImageSerializer(many=True, read_only=False, required=False)
 
     class Meta:
         model = Post
-        fields = '__all__'
+        fields = ('title', 'body', 'category', 'preview', 'images')
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        post = Post.objects.create(**validated_data)
+        images_data = request.FILES.getlist('images')
+        images_objects = [PostImages(post=post, image=image) for image in images_data]
+        PostImages.objects.bulk_create(images_objects)
+        return post
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -37,3 +44,17 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ('id', 'body', 'post', 'owner')
+
+
+class PostSerializer(serializers.ModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')
+    category_name = serializers.ReadOnlyField(source='category.name')
+    images = PostImageSerializer(many=True)
+    comments = CommentSerializer(many=True)
+
+    class Meta:
+        model = Post
+        fields = '__all__'
+        # exclude = ('category',)
+
+
