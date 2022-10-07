@@ -6,3 +6,5 @@ psycopg2-binary
 pytz
 sqlparse
 django-rest-auth
+drf-yasg
+django-filter
